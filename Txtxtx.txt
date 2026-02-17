@@ -1,0 +1,257 @@
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+local SaveManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/SaveManager.lua"))()
+local InterfaceManager = loadstring(game:HttpGet("https://raw.githubusercontent.com/dawid-scripts/Fluent/master/Addons/InterfaceManager.lua"))()
+
+local Window = Fluent:CreateWindow({
+    Title = "Dive For Brainrots | Isnow Hub",
+    SubTitle = "By IsnowScript7",
+    TabWidth = 160,
+    Size = UDim2.fromOffset(580, 460),
+    Acrylic = true, 
+    Theme = "Dark",
+    MinimizeKey = Enum.KeyCode.LeftControl
+})
+
+-- [[ 1. VARIABLES ]] --
+local Workspace = game:GetService("Workspace")
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local UserInputService = game:GetService("UserInputService")
+local VirtualUser = game:GetService("VirtualUser")
+local LocalPlayer = Players.LocalPlayer
+
+-- REMOTES
+local Events = ReplicatedStorage:FindFirstChild("Events")
+local OxygenRemote = Events and Events:FindFirstChild("PurchaseOxygen")
+local CarryRemote = Events and Events:FindFirstChild("PurchaseCarry")
+local RebirthRemote = Events and Events:FindFirstChild("RequestRebirth")
+
+-- COORDINATES
+local SafeZoneCF = CFrame.new(17.26, 7616.52, 31.07) 
+local OGZoneCF = CFrame.new(-6.30, 6749.13, 3326.90)
+
+getgenv().Config = {
+    WaterImmunity = false,
+    AutoUpgradeOxygen = false,
+    AutoUpgradeCarry = false,
+    AutoRebirth = false,
+    AutoCollect = false,
+    UpgradeAmount = 1,
+    WalkSpeed = 16,
+    JumpPower = 50,
+    InfJump = false,
+    AntiAFK = false
+}
+
+-- [[ 2. TABS ]] --
+local Tabs = {
+    Credits = Window:AddTab({ Title = "Credits", Icon = "info" }),
+    Main = Window:AddTab({ Title = "Main", Icon = "droplet" }),
+    Teleport = Window:AddTab({ Title = "Teleport", Icon = "map-pin" }),
+    Misc = Window:AddTab({ Title = "Misc", Icon = "settings-2" }),
+    Settings = Window:AddTab({ Title = "Configs", Icon = "save" })
+}
+
+-- [[ 3. CREDITS TAB ]] --
+Tabs.Credits:AddParagraph({Title = "Developer", Content = "IsnowScript7"})
+Tabs.Credits:AddButton({
+    Title = "Join Discord",
+    Description = "https://discord.gg/hAzcgJypGe",
+    Callback = function() setclipboard("https://discord.gg/hAzcgJypGe"); Fluent:Notify({Title = "Discord", Content = "Copied!", Duration = 3}) end
+})
+Tabs.Credits:AddParagraph({Title = "Team", Content = "Co-Owner: Mytic\nAdmins: Sanko & Mysterious"})
+
+-- [[ 4. MAIN TAB ]] --
+Tabs.Main:AddSection("Survival")
+
+Tabs.Main:AddToggle("WaterImmunity", {
+    Title = "Water Immunity",
+    Description = "God Mode (Removes water damage)",
+    Default = false,
+    Callback = function(Value)
+        getgenv().Config.WaterImmunity = Value
+        if Value then ApplyImmunity() end
+    end
+})
+
+Tabs.Main:AddSection("Base Automation")
+
+Tabs.Main:AddToggle("AutoCollect", {
+    Title = "Auto Collect Money",
+    Description = "Scans Floors 1-3 & Slots 1-10",
+    Default = false,
+    Callback = function(v) getgenv().Config.AutoCollect = v end
+})
+
+Tabs.Main:AddToggle("AutoRebirth", {
+    Title = "Auto Rebirth",
+    Description = "Automatically performs rebirths",
+    Default = false,
+    Callback = function(v) getgenv().Config.AutoRebirth = v end
+})
+
+Tabs.Main:AddSection("Upgrades")
+
+-- OXYGEN
+Tabs.Main:AddDropdown("UpgradeAmount", {
+    Title = "Oxygen Amount",
+    Values = {"1", "5", "10"},
+    Multi = false,
+    Default = "1",
+    Callback = function(v) getgenv().Config.UpgradeAmount = tonumber(v) end
+})
+
+Tabs.Main:AddToggle("AutoUpgradeOxygen", {
+    Title = "Auto Buy Oxygen",
+    Description = "Spams oxygen upgrades",
+    Default = false,
+    Callback = function(v) getgenv().Config.AutoUpgradeOxygen = v end
+})
+
+-- CARRY
+Tabs.Main:AddToggle("AutoUpgradeCarry", {
+    Title = "Auto Buy Carry",
+    Description = "Spams carry capacity upgrades",
+    Default = false,
+    Callback = function(v) getgenv().Config.AutoUpgradeCarry = v end
+})
+
+-- [[ 5. TELEPORT TAB ]] --
+Tabs.Teleport:AddSection("Shops")
+Tabs.Teleport:AddButton({
+    Title = "TP to Oxygen Shop",
+    Callback = function()
+        local shop = Workspace:FindFirstChild("OxygenShop")
+        if LocalPlayer.Character and shop then
+            local cf = shop.PrimaryPart and shop.PrimaryPart.CFrame or shop:GetModelCFrame()
+            LocalPlayer.Character.HumanoidRootPart.CFrame = cf + Vector3.new(0, 5, 0)
+        end
+    end
+})
+
+Tabs.Teleport:AddSection("Zones")
+Tabs.Teleport:AddButton({Title = "TP to Safe Zone", Callback = function() if LocalPlayer.Character then LocalPlayer.Character.HumanoidRootPart.CFrame = SafeZoneCF end end})
+Tabs.Teleport:AddButton({Title = "TP to OG Zone", Callback = function() if LocalPlayer.Character then LocalPlayer.Character.HumanoidRootPart.CFrame = OGZoneCF end end})
+
+-- [[ 6. MISC TAB ]] --
+Tabs.Misc:AddSlider("WalkSpeed", {Title = "Walk Speed", Default = 16, Min = 16, Max = 300, Rounding = 0, Callback = function(v) getgenv().Config.WalkSpeed = v end})
+Tabs.Misc:AddSlider("JumpPower", {Title = "Jump Power", Default = 50, Min = 50, Max = 300, Rounding = 0, Callback = function(v) getgenv().Config.JumpPower = v end})
+Tabs.Misc:AddToggle("InfJump", {Title = "Infinite Jump", Default = false, Callback = function(v) getgenv().Config.InfJump = v end})
+Tabs.Misc:AddToggle("AntiAFK", {Title = "Anti-AFK", Default = false, Callback = function(v) getgenv().Config.AntiAFK = v end})
+Tabs.Misc:AddButton({
+    Title = "FPS Booster",
+    Callback = function()
+        for _, v in pairs(Workspace:GetDescendants()) do
+            if v:IsA("BasePart") and not v.Parent:FindFirstChild("Humanoid") then
+                v.Material = Enum.Material.SmoothPlastic; v.CastShadow = false
+            elseif v:IsA("Texture") or v:IsA("Decal") then v:Destroy() end
+        end
+        Fluent:Notify({Title = "System", Content = "FPS Boost Applied", Duration = 3})
+    end
+})
+
+-- [[ 7. LOGIC FUNCTIONS ]] --
+
+function GetMyPlot()
+    local preciseName = "Plot_" .. LocalPlayer.Name
+    local precisePlot = Workspace:FindFirstChild(preciseName)
+    if precisePlot then return precisePlot end
+    for _, plot in pairs(Workspace:GetChildren()) do
+        if string.find(plot.Name, "Plot_") and string.find(plot.Name, LocalPlayer.Name) then
+            return plot
+        end
+    end
+    return nil
+end
+
+function ApplyImmunity()
+    pcall(function() if LocalPlayer.Character then LocalPlayer.Character:SetAttribute("WaterSystemStarted", true) end end)
+    local sea = Workspace:FindFirstChild("SeaFolder")
+    if sea then sea:Destroy() end
+end
+
+-- [[ 8. LOOPS ]] --
+
+-- Auto Collect Money
+task.spawn(function()
+    while true do
+        task.wait(0.5) 
+        if getgenv().Config.AutoCollect and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local myPlot = GetMyPlot()
+            if myPlot then
+                -- Cycle Floors 1 to 3
+                for floorNum = 1, 3 do
+                    local floorName = "Floor" .. floorNum
+                    local floorObj = myPlot:FindFirstChild(floorName)
+                    
+                    if floorObj and floorObj:FindFirstChild("Slots") then
+                        -- Cycle Slots 1 to 10
+                        for slotNum = 1, 10 do
+                            local slotName = "Slot" .. slotNum
+                            local slotObj = floorObj.Slots:FindFirstChild(slotName)
+                            
+                            if slotObj then
+                                -- Target 'CollectTouch' part
+                                local collectPart = slotObj:FindFirstChild("CollectTouch")
+                                
+                                if collectPart then
+                                    -- Touch the main sensor
+                                    firetouchinterest(LocalPlayer.Character.HumanoidRootPart, collectPart, 0)
+                                    firetouchinterest(LocalPlayer.Character.HumanoidRootPart, collectPart, 1)
+                                    
+                                    -- Touch the button inside if it exists
+                                    local btn = collectPart:FindFirstChild("Button")
+                                    if btn then
+                                        firetouchinterest(LocalPlayer.Character.HumanoidRootPart, btn, 0)
+                                        firetouchinterest(LocalPlayer.Character.HumanoidRootPart, btn, 1)
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+end)
+
+-- Auto Upgrades & Rebirth
+task.spawn(function()
+    while true do task.wait(0.2)
+        if getgenv().Config.AutoUpgradeOxygen and OxygenRemote then OxygenRemote:FireServer(getgenv().Config.UpgradeAmount) end
+        if getgenv().Config.AutoUpgradeCarry and CarryRemote then CarryRemote:FireServer() end
+        if getgenv().Config.AutoRebirth and RebirthRemote then RebirthRemote:FireServer() end
+    end
+end)
+
+-- Water Immunity
+task.spawn(function()
+    LocalPlayer.CharacterAdded:Connect(function(char) if getgenv().Config.WaterImmunity then char:WaitForChild("HumanoidRootPart", 5); ApplyImmunity() end end)
+    while true do task.wait(1); if getgenv().Config.WaterImmunity and Workspace:FindFirstChild("SeaFolder") then ApplyImmunity() end end
+end)
+
+-- Speed/Jump
+task.spawn(function()
+    while true do task.wait(1)
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("Humanoid") then
+            if LocalPlayer.Character.Humanoid.WalkSpeed ~= getgenv().Config.WalkSpeed then LocalPlayer.Character.Humanoid.WalkSpeed = getgenv().Config.WalkSpeed end
+            if LocalPlayer.Character.Humanoid.JumpPower ~= getgenv().Config.JumpPower then LocalPlayer.Character.Humanoid.UseJumpPower = true; LocalPlayer.Character.Humanoid.JumpPower = getgenv().Config.JumpPower end
+        end
+    end
+end)
+
+-- Inf Jump & Anti-AFK
+UserInputService.JumpRequest:Connect(function() if getgenv().Config.InfJump and LocalPlayer.Character then LocalPlayer.Character:FindFirstChildOfClass('Humanoid'):ChangeState("Jumping") end end)
+LocalPlayer.Idled:Connect(function() if getgenv().Config.AntiAFK then VirtualUser:CaptureController(); VirtualUser:ClickButton2(Vector2.new()) end end)
+
+-- Init
+SaveManager:SetLibrary(Fluent)
+InterfaceManager:SetLibrary(Fluent)
+SaveManager:IgnoreThemeSettings()
+SaveManager:SetIgnoreIndexes({})
+InterfaceManager:BuildInterfaceSection(Tabs.Settings)
+SaveManager:BuildConfigSection(Tabs.Settings)
+
+Window:SelectTab(1)
+Fluent:Notify({Title = "Isnow Hub", Content = "Loaded!", Duration = 5})
